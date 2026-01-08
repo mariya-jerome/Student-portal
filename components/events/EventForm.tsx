@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+
 import {
   Dialog,
   DialogTrigger,
@@ -23,7 +24,22 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 
-export default function EventForm({ mode, event, departments }) {
+type EventFormProps = {
+  mode?: "create" | "edit";
+  event?: any;
+  departments: {
+    _id: Id<"departments">;
+    name: string;
+    code: string;
+    description?: string;
+  }[];
+};
+
+export default function EventForm({
+  mode = "create",
+  event = null,
+  departments,
+}: EventFormProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
@@ -43,7 +59,7 @@ export default function EventForm({ mode, event, departments }) {
       departmentId,
     };
 
-    if (mode === "edit") {
+    if (mode === "edit" && event) {
       await updateEvent({ id: event._id as Id<"events">, ...payload });
     } else {
       await createEvent(payload);
@@ -51,7 +67,6 @@ export default function EventForm({ mode, event, departments }) {
     setOpen(false);
   };
 
-  // ✅ Now the return is inside the component
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -68,7 +83,10 @@ export default function EventForm({ mode, event, departments }) {
 
         <Calendar mode="single" selected={date} onSelect={setDate} />
 
-        <Select value={departmentId} onValueChange={(val) => setDepartmentId(val as Id<"departments">)}>
+        <Select
+          value={departmentId}
+          onValueChange={(val) => setDepartmentId(val as Id<"departments">)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select Department (Optional)" />
           </SelectTrigger>
