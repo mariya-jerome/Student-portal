@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -20,111 +23,139 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 
-export default function EventForm({
-  departments = [],   // ✅ SAFE DEFAULT
-  event,
-  mode = "create",
+const eventSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  date: z.string().min(1, "Date is required"),
+  location: z.string().min(1, "Location is required"),
+  departmentId: z.string().optional(),
+});
+
+export function EventForm({
+  initialData,
+  submitLabel = "Create",
   onSubmit,
 }: {
-  departments?: any[];
-  event?: any;
-  mode?: "create" | "edit";
-  onSubmit?: (data: any) => Promise<void>;
+  initialData?: any;
+  submitLabel?: string;
+  onSubmit: (data: any) => Promise<void>;
 }) {
-  const createEvent = useMutation(api.events.create);
-  const updateEvent = useMutation(api.events.update);
+  const departments = useQuery(api.departments.getAll);
 
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(event?.title ?? "");
-  const [description, setDescription] = useState(event?.description ?? "");
-  const [location, setLocation] = useState(event?.location ?? "");
-  const [date, setDate] = useState<Date | undefined>(
-    event ? new Date(event.date) : undefined
-  );
-  const [departmentId, setDepartmentId] = useState<string | undefined>(
-    event?.departmentId
-  );
-
-  const handleSubmit = async () => {
-    if (!date) return;
-
-    const payload = {
-      title,
-      description,
-      location,
-      date: date.getTime(),
-      departmentId,
-    };
-
-    if (mode === "edit") {
-      await updateEvent({ id: event._id, ...payload });
-    } else {
-      await createEvent(payload);
-    }
-
-    setOpen(false);
-  };
+  const form = useForm({
+    resolver: zodResolver(eventSchema),
+    defaultValues: initialData || {
+      title: "",
+      description: "",
+      date: "",
+      location: "",
+      departmentId: undefined,
+    },
+  });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          {mode === "edit" ? "Edit" : "Add Event"}
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(async (data) => {
+          await onSubmit({
+            ...data,
+            date: new Date(data.date).getTime(),
+            departmentId: data.departmentId ? (data.departmentId as Id<"departments">) : undefined,
+          });
+        })}
+        className="space-y-4"
+      >
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date</FormLabel>
+              <FormControl>
+                <Input type="datetime-local" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="departmentId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Department (Optional)</FormLabel>
+              <Select 
+                onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} 
+                value={field.value || "none"}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {departments?.map((dept) => (
+                    <SelectItem key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" className="w-full">
+          {submitLabel}
         </Button>
-      </DialogTrigger>
-
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "edit" ? "Edit Event" : "Add Event"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <Input
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        <Textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <Input
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={setDate}
-        />
-
-        <Select
-          value={departmentId}
-          onValueChange={setDepartmentId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select Department (Optional)" />
-          </SelectTrigger>
-
-          <SelectContent>
-            {departments.map((dept) => (
-              <SelectItem key={dept._id} value={dept._id}>
-                {dept.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button onClick={handleSubmit}>Save</Button>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </Form>
   );
 }
