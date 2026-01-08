@@ -1,80 +1,56 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { EventForm } from "./EventForm";
-import { useState } from "react";
-import { format } from "date-fns";
-import type { Id } from "@/convex/_generated/dataModel";
+import EventForm from "./EventForm";
 
-export function EventCard({ event, onUpdate, onDelete }: any) {
-  const [editing, setEditing] = useState(false);
+export default function EventCard({
+  event,
+  departments,
+}: {
+  event: any;
+  departments: any[];
+}) {
+  const remove = useMutation(api.events.remove);
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <CardTitle>{event.title}</CardTitle>
-            <Badge variant="outline">
-              {format(new Date(event.date), "MMM dd, yyyy")}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">
-            {event.description}
-          </p>
-          <p className="text-sm mb-4">
-            <strong>Location:</strong> {event.location}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </Button>
-            <Button size="sm" variant="destructive" onClick={onDelete}>
-              Delete
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <Card className="hover:shadow-md transition">
+      <CardHeader className="space-y-1">
+        <h3 className="text-lg font-semibold">
+          {event.title}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {new Date(event.date).toLocaleDateString()}
+        </p>
+      </CardHeader>
 
-      {editing && (
-        <Dialog open={editing} onOpenChange={setEditing}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Event</DialogTitle>
-            </DialogHeader>
-            <EventForm
-              initialData={{
-                ...event,
-                date: new Date(event.date).toISOString().slice(0, 16),
-                departmentId: event.departmentId || "",
-              }}
-              submitLabel="Update"
-              onSubmit={async (data) => {
-                await onUpdate({ 
-                  id: event._id, 
-                  ...data,
-                  departmentId: data.departmentId ? (data.departmentId as Id<"departments">) : undefined,
-                });
-                setEditing(false);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
+      <CardContent className="space-y-3">
+        <p className="text-sm">
+          {event.description}
+        </p>
+
+        <p className="text-sm">
+          📍 {event.location}
+        </p>
+
+        <div className="flex gap-3 pt-2">
+          <EventForm
+            event={event}
+            departments={departments}
+            mode="edit"
+          />
+
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => remove({ id: event._id })}
+          >
+            Delete
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
