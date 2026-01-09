@@ -2,7 +2,7 @@
 
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import EventForm from "./EventForm";
 
@@ -16,26 +16,13 @@ export default function EventCard({
   const remove = useMutation(api.events.remove);
 
   return (
-    <Card className="hover:shadow-md transition">
-      <CardHeader className="space-y-1">
-        <h3 className="text-lg font-semibold">
-          {event.title}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          {new Date(event.date).toLocaleDateString()}
-        </p>
-      </CardHeader>
+    <Card>
+      <CardContent className="space-y-2">
+        <h3 className="font-bold">{event.title}</h3>
+        <p>{event.description}</p>
+        <p>{new Date(event.date).toLocaleDateString()}</p>
 
-      <CardContent className="space-y-3">
-        <p className="text-sm">
-          {event.description}
-        </p>
-
-        <p className="text-sm">
-          📍 {event.location}
-        </p>
-
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-2">
           <EventForm
             event={event}
             departments={departments}

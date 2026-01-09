@@ -3,128 +3,117 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
+import { Id } from "@/convex/_generated/dataModel";
 
-export default function EventForm({
-  departments = [],   // ✅ SAFE DEFAULT
-  event,
-  mode = "create",
-  onSubmit,
-}: {
-  departments?: any[];
-  event?: any;
-  mode?: "create" | "edit";
-  onSubmit?: (data: any) => Promise<void>;
-}) {
+type EventFormProps = {
+  mode: "create" | "edit";
+  event?: {
+    _id: Id<"events">;
+    title: string;
+    description: string;
+    location: string;
+    date: number;
+    departmentId?: Id<"departments">;
+  };
+};
+
+export default function EventForm({ mode, event }: EventFormProps) {
   const createEvent = useMutation(api.events.create);
   const updateEvent = useMutation(api.events.update);
 
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
-  const [date, setDate] = useState<Date | undefined>(
-    event ? new Date(event.date) : undefined
+  const [date, setDate] = useState(
+    event?.date
+      ? new Date(event.date).toISOString().substring(0, 10)
+      : ""
   );
-  const [departmentId, setDepartmentId] = useState<string | undefined>(
-    event?.departmentId
+  const [departmentId, setDepartmentId] = useState<string>(
+    event?.departmentId ?? ""
   );
 
-  const handleSubmit = async () => {
-    if (!date) return;
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
 
     const payload = {
       title,
       description,
       location,
-      date: date.getTime(),
-      departmentId,
+      date: new Date(date).getTime(),
+      departmentId: departmentId
+        ? (departmentId as Id<"departments">)
+        : undefined,
     };
 
-    if (mode === "edit") {
-      await updateEvent({ id: event._id, ...payload });
+    if (mode === "edit" && event?._id) {
+      await updateEvent({
+        id: event._id as Id<"events">,
+        ...payload,
+      });
     } else {
       await createEvent(payload);
     }
 
-    setOpen(false);
-  };
+    // optional: reset form
+    setTitle("");
+    setDescription("");
+    setLocation("");
+    setDate("");
+    setDepartmentId("");
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          {mode === "edit" ? "Edit" : "Add Event"}
-        </Button>
-      </DialogTrigger>
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+      <input
+        type="text"
+        placeholder="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full border p-2 rounded"
+        required
+      />
 
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "edit" ? "Edit Event" : "Add Event"}
-          </DialogTitle>
-        </DialogHeader>
+      <textarea
+        placeholder="Description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full border p-2 rounded"
+        required
+      />
 
-        <Input
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+      <input
+        type="text"
+        placeholder="Location"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="w-full border p-2 rounded"
+        required
+      />
 
-        <Textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="w-full border p-2 rounded"
+        required
+      />
 
-        <Input
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+      {/* Department ID input (usually select dropdown in real apps) */}
+      <input
+        type="text"
+        placeholder="Department ID"
+        value={departmentId}
+        onChange={(e) => setDepartmentId(e.target.value)}
+        className="w-full border p-2 rounded"
+      />
 
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={setDate}
-        />
-
-        <Select
-          value={departmentId}
-          onValueChange={setDepartmentId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select Department (Optional)" />
-          </SelectTrigger>
-
-          <SelectContent>
-            {departments.map((dept) => (
-              <SelectItem key={dept._id} value={dept._id}>
-                {dept.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button onClick={handleSubmit}>Save</Button>
-      </DialogContent>
-    </Dialog>
+      <button
+        type="submit"
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        {mode === "edit" ? "Update Event" : "Create Event"}
+      </button>
+    </form>
   );
 }
