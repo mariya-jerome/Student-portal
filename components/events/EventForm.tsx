@@ -32,7 +32,7 @@ export default function EventForm({ event }: EventFormProps) {
   const createEvent = useMutation(api.events.create);
   const updateEvent = useMutation(api.events.update);
   const departments = useQuery(api.departments.getAll);
-
+const mode = "create";
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
