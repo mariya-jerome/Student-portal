@@ -1,119 +1,157 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+
 type EventFormProps = {
-  mode: "create" | "edit";
-  event?: {
-    _id: Id<"events">;
-    title: string;
-    description: string;
-    location: string;
-    date: number;
-    departmentId?: Id<"departments">;
-  };
+  event?: any;
 };
 
-export default function EventForm({ mode, event }: EventFormProps) {
+export default function EventForm({ event }: EventFormProps) {
   const createEvent = useMutation(api.events.create);
   const updateEvent = useMutation(api.events.update);
+  const departments = useQuery(api.departments.getAll);
+
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
-  const [date, setDate] = useState(
-    event?.date
-      ? new Date(event.date).toISOString().substring(0, 10)
-      : ""
-  );
-  const [departmentId, setDepartmentId] = useState<string>(
-    event?.departmentId ?? ""
+  const [date, setDate] = useState<Date | undefined>(
+    event?.date ? new Date(event.date) : undefined
   );
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const [departmentId, setDepartmentId] =
+    useState<Id<"departments"> | undefined>(
+      event?.departmentId
+    );
 
-    const payload = {
-      title,
-      description,
-      location,
-      date: new Date(date).getTime(),
-      departmentId: departmentId
-        ? (departmentId as Id<"departments">)
-        : undefined,
-    };
-
-    if (mode === "edit" && event?._id) {
-      await updateEvent({
-        id: event._id as Id<"events">,
-        ...payload,
-      });
-    } else {
-      await createEvent(payload);
+  const handleSave = async () => {
+    if (!title || !description || !location || !date) {
+      alert("Please fill all required fields");
+      return;
     }
 
-    // optional: reset form
-    setTitle("");
-    setDescription("");
-    setLocation("");
-    setDate("");
-    setDepartmentId("");
-  }
+    setLoading(true);
+
+    try {
+      const payload = {
+        title,
+        description,
+        location,
+        date: date.getTime(),
+        departmentId,
+      };
+
+      if (event) {
+        await updateEvent({ id: event._id, ...payload });
+      } else {
+        await createEvent(payload);
+      }
+
+      setOpen(false);
+    } catch (error) {
+      console.error("Event save failed:", error);
+      alert("Failed to save event");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-      <input
-        type="text"
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="w-full border p-2 rounded"
-        required
-      />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>{event ? "Edit" : "Add Event"}</Button>
+      </DialogTrigger>
 
-      <textarea
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="w-full border p-2 rounded"
-        required
-      />
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{event ? "Edit Event" : "Add Event"}</DialogTitle>
+        </DialogHeader>
 
-      <input
-        type="text"
-        placeholder="Location"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        className="w-full border p-2 rounded"
-        required
-      />
+        <div className="space-y-4">
+          <Input
+            placeholder="Event Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="w-full border p-2 rounded"
-        required
-      />
+          <Textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
 
-      {/* Department ID input (usually select dropdown in real apps) */}
-      <input
-        type="text"
-        placeholder="Department ID"
-        value={departmentId}
-        onChange={(e) => setDepartmentId(e.target.value)}
-        className="w-full border p-2 rounded"
-      />
+          <Input
+            placeholder="Location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
 
-      <button
-        type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        {mode === "edit" ? "Update Event" : "Create Event"}
-      </button>
-    </form>
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={setDate}
+            className="rounded-md border"
+          />
+
+          {/* ✅ FIXED SELECT */}
+          <Select
+            value={departmentId ?? "none"}
+            onValueChange={(value) =>
+              setDepartmentId(
+                value === "none"
+                  ? undefined
+                  : (value as Id<"departments">)
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Department (Optional)" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="none">No Department</SelectItem>
+
+              {departments?.map((dept) => (
+                <SelectItem key={dept._id} value={dept._id}>
+                  {dept.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            className="w-full"
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
